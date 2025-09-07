@@ -1,0 +1,533 @@
+openapi: 3.0.3
+info:
+  title: StabiliSim API
+  version: 0.1.0
+  description: |
+    Stablecoin Stress & Peg Stability Simulator (MVP)
+    - 실데이터 지표 조회
+    - 시뮬레이션 생성/조회
+    - (옵션) 벤치마크, 리포트 생성
+
+servers:
+  - url: http://localhost:8080
+    description: Local Dev
+
+tags:
+  - name: Metrics
+    description: 실데이터 기반 지표
+  - name: Simulations
+    description: 시뮬레이션 생성/조회
+  - name: Benchmarks
+    description: 코인 간 비교(옵션)
+  - name: Reports
+    description: 리포트 생성(옵션)
+
+paths:
+  /api/assets/{symbol}/metrics:
+    get:
+      tags: [Metrics]
+      summary: 특정 자산의 기간별 지표 조회
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+            example: USDT
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+            example: 2025-01-01T00:00:00Z
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+            example: 2025-01-31T23:59:59Z
+        - name: interval
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [1m, 5m, 1h, 1d]
+            default: 1h
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetMetricsResponse'
+              examples:
+                sample:
+                  value:
+                    symbol: "USDT"
+                    from: "2025-01-01T00:00:00Z"
+                    to: "2025-01-07T00:00:00Z"
+                    interval: "1h"
+                    metrics:
+                      avgDeviation: 0.0007
+                      volatility: 0.0015
+                      pegUptime: 0.992
+                      priceSummary: { open: 1.0003, high: 1.004, low: 0.997, close: 1.0001 }
+                    samples:
+                      - { t: "2025-01-01T00:00:00Z", price: 1.0003 }
+                      - { t: "2025-01-01T01:00:00Z", price: 1.0001 }
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "500":
+          $ref: '#/components/responses/ServerError'
+
+  /api/simulations:
+    post:
+      tags: [Simulations]
+      summary: 시뮬레이션 생성(비동기 실행)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimulationRequest'
+            examples:
+              reserveBasic:
+                value:
+                  modelType: RESERVE
+                  steps: 10000
+                  dt: 1
+                  seed: 42
+                  params:
+                    ltv: 0.9
+                    redeemFee: 0.001
+                    oracleLagSec: 60
+                    initSupply: 1000000
+                    initReserveCash: 1000000
+                    initReserveCollateral: 0
+                  scenarios:
+                    - { t: 500, type: REDEEM_SHOCK, value: 0.25 }
+                    - { t: 600, type: ORACLE_LAG, value: 120 }
+      responses:
+        "202":
+          description: Accepted (job created)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulationCreateResponse'
+              examples:
+                created:
+                  value:
+                    id: "sim_20250907_0001"
+                    status: QUEUED
+                    createdAt: "2025-09-07T12:00:00Z"
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "429":
+          $ref: '#/components/responses/TooManyRequests'
+        "500":
+          $ref: '#/components/responses/ServerError'
+
+  /api/simulations/{id}:
+    get:
+      tags: [Simulations]
+      summary: 시뮬레이션 결과 조회
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK (진행중/완료 모두)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulationStatusOrResult'
+              examples:
+                running:
+                  value:
+                    id: "sim_20250907_0001"
+                    status: RUNNING
+                    progress: 0.62
+                    startedAt: "2025-09-07T12:01:00Z"
+                finished:
+                  value:
+                    id: "sim_20250907_0001"
+                    status: FINISHED
+                    modelType: RESERVE
+                    params:
+                      ltv: 0.9
+                      redeemFee: 0.001
+                      oracleLagSec: 60
+                      initSupply: 1000000
+                      initReserveCash: 1000000
+                      initReserveCollateral: 0
+                    scenarios:
+                      - { t: 500, type: REDEEM_SHOCK, value: 0.25 }
+                    metrics:
+                      avgDeviation: 0.0012
+                      volatility: 0.0021
+                      pegUptime: 0.985
+                      recoveryTime: 180
+                      maxDrawdown: 0.012
+                    series:
+                      - { t: 0, price: 1.0, supply: 1000000, reserveCash: 1000000, reserveCollateral: 0, pegDeviation: 0 }
+                      - { t: 1, price: 0.9998, supply: 999500, reserveCash: 999800, reserveCollateral: 0, pegDeviation: 0.0002 }
+                    events:
+                      - { t: 500, kind: "REDEEM_SHOCK_TRIGGERED", data: { fraction: 0.25 } }
+                    startedAt: "2025-09-07T12:01:00Z"
+                    finishedAt: "2025-09-07T12:04:30Z"
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/ServerError'
+
+  /api/benchmarks/peg-deviation:
+    get:
+      tags: [Benchmarks]
+      summary: 여러 스테이블코인의 페그 괴리 비교
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: symbols
+          in: query
+          required: true
+          description: 쉼표 구분 기호 (예: USDT,USDC,DAI)
+          schema: { type: string }
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+        - name: interval
+          in: query
+          schema:
+            type: string
+            enum: [1m, 5m, 1h, 1d]
+            default: 1h
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BenchmarkPegDeviationResponse'
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "500":
+          $ref: '#/components/responses/ServerError'
+
+  /api/reports:
+    post:
+      tags: [Reports]
+      summary: 리포트 생성(PDF/HTML)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportRequest'
+            examples:
+              pdfSim:
+                value:
+                  type: SIMULATION
+                  simulationId: sim_20250907_0001
+                  format: PDF
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/ServerError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Not Found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    TooManyRequests:
+      description: Too Many Requests
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    ServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        code: { type: string, example: BAD_REQUEST }
+        message: { type: string, example: invalid parameter 'steps' }
+        traceId: { type: string, example: req-123456 }
+
+    SimulationRequest:
+      type: object
+      required: [modelType, steps, dt, params]
+      properties:
+        modelType:
+          type: string
+          enum: [RESERVE, ALGO, HYBRID]
+        steps:
+          type: integer
+          minimum: 1
+          example: 10000
+        dt:
+          type: number
+          format: float
+          minimum: 0.0001
+          example: 1
+        seed:
+          type: integer
+          example: 42
+        params:
+          $ref: '#/components/schemas/SimParams'
+        scenarios:
+          type: array
+          items:
+            $ref: '#/components/schemas/Scenario'
+
+    SimParams:
+      type: object
+      properties:
+        ltv: { type: number, format: float, minimum: 0, maximum: 1, example: 0.9 }
+        redeemFee: { type: number, format: float, minimum: 0, maximum: 0.1, example: 0.001 }
+        oracleLagSec: { type: integer, minimum: 0, example: 60 }
+        initSupply: { type: number, example: 1000000 }
+        initReserveCash: { type: number, example: 1000000 }
+        initReserveCollateral: { type: number, example: 0 }
+        # ALGO/HYBRID용 추가 파라미터는 추후 확장
+
+    Scenario:
+      type: object
+      required: [t, type, value]
+      properties:
+        t:
+          type: integer
+          description: 적용 시점(step)
+          example: 500
+        type:
+          type: string
+          enum: [REDEEM_SHOCK, COLLATERAL_DROP, ORACLE_LAG, FEE_CHANGE]
+        value:
+          type: number
+          description: 시나리오 강도(비율 또는 초 단위 등)
+          example: 0.25
+
+    SimulationCreateResponse:
+      type: object
+      properties:
+        id: { type: string, example: sim_20250907_0001 }
+        status:
+          type: string
+          enum: [QUEUED, RUNNING, FINISHED, FAILED]
+        createdAt: { type: string, format: date-time }
+
+    SimulationStatusOrResult:
+      oneOf:
+        - $ref: '#/components/schemas/SimulationStatus'
+        - $ref: '#/components/schemas/SimulationResult'
+
+    SimulationStatus:
+      type: object
+      properties:
+        id: { type: string }
+        status:
+          type: string
+          enum: [QUEUED, RUNNING]
+        progress:
+          type: number
+          minimum: 0
+          maximum: 1
+          example: 0.62
+        startedAt: { type: string, format: date-time }
+
+    SimulationResult:
+      type: object
+      properties:
+        id: { type: string }
+        status:
+          type: string
+          enum: [FINISHED, FAILED]
+        modelType:
+          type: string
+          enum: [RESERVE, ALGO, HYBRID]
+        params:
+          $ref: '#/components/schemas/SimParams'
+        scenarios:
+          type: array
+          items: { $ref: '#/components/schemas/Scenario' }
+        metrics:
+          $ref: '#/components/schemas/RiskMetrics'
+        series:
+          type: array
+          description: 시간 경과 시계열(샘플링 또는 페이징 권장)
+          items:
+            $ref: '#/components/schemas/SeriesPoint'
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/SimEvent'
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+
+    SeriesPoint:
+      type: object
+      properties:
+        t: { type: integer, example: 1234 }
+        price: { type: number, format: float, example: 0.9992 }
+        supply: { type: number, example: 999500 }
+        reserveCash: { type: number, example: 999800 }
+        reserveCollateral: { type: number, example: 0 }
+        pegDeviation: { type: number, format: float, example: 0.0008 }
+
+    SimEvent:
+      type: object
+      properties:
+        t: { type: integer, example: 500 }
+        kind: { type: string, example: REDEEM_SHOCK_TRIGGERED }
+        data:
+          type: object
+          additionalProperties: true
+
+    RiskMetrics:
+      type: object
+      properties:
+        avgDeviation: { type: number, format: float, example: 0.0012 }
+        volatility: { type: number, format: float, example: 0.0021 }
+        pegUptime: { type: number, format: float, example: 0.985 }
+        recoveryTime: { type: integer, example: 180 }
+        maxDrawdown: { type: number, format: float, example: 0.012 }
+
+    AssetMetricsResponse:
+      type: object
+      properties:
+        symbol: { type: string, example: USDT }
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        interval: { type: string, example: 1h }
+        metrics:
+          type: object
+          properties:
+            avgDeviation: { type: number, format: float }
+            volatility: { type: number, format: float }
+            pegUptime: { type: number, format: float }
+            priceSummary:
+              type: object
+              properties:
+                open: { type: number, format: float }
+                high: { type: number, format: float }
+                low: { type: number, format: float }
+                close: { type: number, format: float }
+        samples:
+          type: array
+          items:
+            type: object
+            properties:
+              t: { type: string, format: date-time }
+              price: { type: number, format: float }
+
+    BenchmarkPegDeviationResponse:
+      type: object
+      properties:
+        symbols:
+          type: array
+          items: { type: string }
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        interval: { type: string }
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              symbol: { type: string }
+              metrics:
+                type: object
+                properties:
+                  avgDeviation: { type: number, format: float }
+                  volatility: { type: number, format: float }
+                  pegUptime: { type: number, format: float }
+
+    ReportRequest:
+      type: object
+      required: [type, format]
+      properties:
+        type:
+          type: string
+          enum: [SIMULATION, BENCHMARK]
+        simulationId:
+          type: string
+          description: type=SIMULATION일 때 필요
+        benchmarkQuery:
+          type: object
+          description: type=BENCHMARK일 때 필요
+          properties:
+            symbols: { type: string, example: "USDT,USDC,DAI" }
+            from: { type: string, format: date-time }
+            to: { type: string, format: date-time }
+            interval:
+              type: string
+              enum: [1m, 5m, 1h, 1d]
+              default: 1h
+        format:
+          type: string
+          enum: [PDF, HTML]
+
+    ReportResponse:
+      type: object
+      properties:
+        reportId: { type: string, example: rpt_20250907_0001 }
+        url: { type: string, example: https://example.com/reports/rpt_20250907_0001.pdf }
+        expiresAt: { type: string, format: date-time }
