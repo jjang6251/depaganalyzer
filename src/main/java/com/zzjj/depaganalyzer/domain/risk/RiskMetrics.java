@@ -5,21 +5,21 @@ public record RiskMetrics (
          * 스테이블코인이 목표 페그(예: 1 USD)에서 얼마나 벗어났는지를 평균적으로 측정하는 값.
          * 값이 낮을수록 가격이 목표 값(페그)에 더 잘 유지됨을 의미함.
          * */
-        double avgDeviation,
+        Double avgDeviation,
 
         /**
          * (변동성)
          * 일정 기간 동안 스테이블코인의 가격 변동성을 수치화한 것.
          * 변동성이 높으면 페그 유지가 불안정하다는 신호가 될 수 있음.
          * */
-        double volatility,
+        Double volatility,
 
         /**
          * (페그 유지율)
          * 전체 시간 대비 스테이블코인이 목표 값에 근접하게 유지된 시간의 비율.
          * 예: 0.98이라면 98%의 시간 동안 1달러에 고정된 상태를 유지했다는 뜻.
          * */
-        double pegUptime,
+        Double pegUptime,
 
         /**
          * (복구 시간)
