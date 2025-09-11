@@ -1,4 +1,4 @@
-package com.zzjj.depaganalyzer.service.util;
+package com.zzjj.depaganalyzer.service.impl;
 
 import com.zzjj.depaganalyzer.domain.risk.RiskMetrics;
 import com.zzjj.depaganalyzer.dto.metrics.AssetMetricsResponse;
@@ -21,7 +21,7 @@ public final class RiskMetricsCalc {
      * @return 계산된 RiskMetrics 객체
      */
     //samples: 시간 오름차순 가정
-    public static RiskMetrics calcfromSamples(List<AssetMetricsResponse.Sample> samples) {
+    public static RiskMetrics calcFromSamples(List<AssetMetricsResponse.Sample> samples) {
         // 샘플이 없거나 2개 미만이면 계산 불가 → 모든 지표 null 반환
         if (samples == null || samples.size() < 2) {
             return new RiskMetrics(null, null, null, null, null);
