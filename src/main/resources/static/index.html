@@ -1,0 +1,793 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8" />
+    <title>StabiliSim • Stablecoin Simulator (Beginner Friendly + Scenario Builder)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Tailwind (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js (CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root { color-scheme: light; }               /* 라이트 고정 */
+        body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial; color:#111; }
+        .glass { background: rgba(255,255,255,.66); backdrop-filter: blur(10px); }
+        .metric-card { border-radius: 1rem; box-shadow: 0 10px 25px rgba(0,0,0,.08); }
+        .pill { border-radius: 9999px; }
+        .code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+        .hint { font-size: .78rem; color: #475569; }
+        .kbd { border:1px solid #cbd5e1; padding:.1rem .35rem; border-radius:.35rem; font-size:.75rem; background: rgba(15,23,42,.03); }
+        .text-force { color:#111 !important; }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-100 via-white to-indigo-50">
+
+<!-- Onboarding Banner -->
+<div id="banner" class="px-4 py-3 bg-indigo-600 text-white">
+    <div class="max-w-7xl mx-auto flex items-start gap-3">
+        <div class="font-extrabold">처음이신가요?</div>
+        <div class="text-sm opacity-90">
+            아래 <span class="font-semibold">① 개념 → ② 메트릭 → ③ 비교 → ④ 시뮬</span> 순서로 눌러보면 됩니다. 1분 만에 결과 확인!
+        </div>
+        <button id="bannerClose" class="ml-auto text-white/90 hover:text-white text-sm">닫기</button>
+    </div>
+</div>
+
+<header class="sticky top-0 z-40 glass border-b border-white/40">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div>
+            <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-force">
+                StabiliSim <span class="text-indigo-600">Simulator</span>
+            </h1>
+            <p class="text-xs mt-1">스테이블코인 안정성 시뮬레이터 — <span class="pill px-2 py-0.5 bg-indigo-100 text-indigo-700">Synthetic(합성) Mode</span></p>
+        </div>
+        <div class="flex items-center gap-3 text-xs">
+            <a class="underline hover:no-underline" href="/swagger-ui/index.html" target="_blank">OpenAPI</a>
+        </div>
+    </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-4 py-6 space-y-8">
+
+    <!-- STEP 0: What is this? -->
+    <section class="glass rounded-2xl border border-white/40 p-5">
+        <h2 class="text-lg sm:text-xl font-bold mb-2 text-force">0) 이 도구는 무엇인가요?</h2>
+        <p class="text-sm leading-relaxed">
+            StabiliSim은 스테이블코인의 가격이 <span class="font-semibold">1달러(=1.0)</span>에 잘 붙어 있는지 실험해보는 도구입니다.
+            실제 거래소 데이터 없이, <span class="font-semibold">합성(시뮬레이션) 데이터</span>로 빠르게 테스트합니다.
+        </p>
+        <div class="mt-3 grid lg:grid-cols-4 gap-3 text-sm">
+            <div class="p-3 bg-white/80 rounded-xl border border-slate-200/70">
+                <div class="font-semibold text-force">Avg Deviation</div>
+                <div class="hint mt-1">평균 괴리율. 1.0에서 벗어난 정도의 평균. 낮을수록 좋음.</div>
+            </div>
+            <div class="p-3 bg-white/80 rounded-xl border">
+                <div class="font-semibold text-force">Volatility</div>
+                <div class="hint mt-1">변동성(로그수익률 표준편차). 낮을수록 좋음.</div>
+            </div>
+            <div class="p-3 bg-white/80 rounded-xl border">
+                <div class="font-semibold text-force">Peg Uptime</div>
+                <div class="hint mt-1">0.995~1.005 범위에 머문 비율. 높을수록 좋음.</div>
+            </div>
+            <div class="p-3 bg-white/80 rounded-xl border">
+                <div class="font-semibold text-force">Events</div>
+                <div class="hint mt-1">충격(대량 환매 등)이 발생한 시점을 기록.</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- STEP 1: Metrics -->
+    <section class="space-y-3">
+        <div class="flex items-center gap-3">
+            <div class="pill px-2 py-0.5 bg-slate-900 text-white text-xs">①</div>
+            <h2 class="text-lg sm:text-xl font-bold text-force">자산 메트릭 보기 (기본 개념 익히기)</h2>
+            <span class="hint">/api/assets/{symbol}/metrics</span>
+        </div>
+
+        <div class="glass rounded-2xl border border-white/40 p-4">
+            <form id="metricsForm" class="grid sm:grid-cols-5 gap-3">
+                <label class="sm:col-span-1 block">
+                    <span class="text-xs">Symbol <span class="hint">예: USDT</span></span>
+                    <input id="mSymbol" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 bg-white/90" value="USDT">
+                </label>
+                <label class="sm:col-span-1 block">
+                    <span class="text-xs">Interval</span>
+                    <select id="mInterval" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 bg-white/90">
+                        <option>1h</option><option>1m</option><option>5m</option><option>1d</option>
+                    </select>
+                </label>
+                <label class="sm:col-span-1 block">
+                    <span class="text-xs">From (ISO) <span class="hint">비워두면 최근 7일</span></span>
+                    <input id="mFrom" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 bg-white/90">
+                </label>
+                <label class="sm:col-span-1 block">
+                    <span class="text-xs">To (ISO) <span class="hint">비워두면 지금</span></span>
+                    <input id="mTo" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 bg-white/90">
+                </label>
+                <div class="sm:col-span-1 flex items-end">
+                    <button class="w-full px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold shadow hover:bg-indigo-500" type="submit">메트릭 가져오기</button>
+                </div>
+            </form>
+
+            <p class="hint mt-2">팁: 날짜 입력이 어려우면 비워두세요. 기본값으로 바로 볼 수 있어요.</p>
+
+            <div id="metricsEmpty" class="mt-4 text-sm text-slate-600">아직 데이터가 없습니다. 위의 버튼을 눌러 메트릭을 불러오세요.</div>
+            <div id="metricsCards" class="mt-3 grid sm:grid-cols-4 gap-4"></div>
+            <div class="glass rounded-2xl p-4 border border-white/40 mt-3">
+                <canvas id="metricsChart" height="80"></canvas>
+            </div>
+        </div>
+    </section>
+
+    <!-- STEP 2: Benchmarks -->
+    <section class="space-y-3">
+        <div class="flex items-center gap-3">
+            <div class="pill px-2 py-0.5 bg-slate-900 text-white text-xs">②</div>
+            <h2 class="text-lg sm:text-xl font-bold text-force">코인 간 비교(벤치마크)</h2>
+            <span class="hint">/api/benchmarks/peg-deviation</span>
+        </div>
+
+        <div class="glass rounded-2xl border p-4">
+            <form id="benchForm" class="grid sm:grid-cols-5 gap-3">
+                <label class="sm:col-span-2 block">
+                    <span class="text-xs">Symbols (쉼표 구분) <span class="hint">예: USDT,USDC,DAI</span></span>
+                    <input id="bSymbols" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 bg-white/90" value="USDT,USDC,DAI">
+                </label>
+                <label class="sm:col-span-1 block">
+                    <span class="text-xs">Interval</span>
+                    <select id="bInterval" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 bg-white/90">
+                        <option>1h</option><option>1m</option><option>5m</option><option>1d</option>
+                    </select>
+                </label>
+                <label class="sm:col-span-1 block">
+                    <span class="text-xs">From</span>
+                    <input id="bFrom" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 bg-white/90">
+                </label>
+                <label class="sm:col-span-1 block">
+                    <span class="text-xs">To</span>
+                    <input id="bTo" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 bg-white/90">
+                </label>
+                <div class="sm:col-span-5 flex justify-end gap-2">
+                    <button class="px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold shadow hover:bg-indigo-500" type="submit">비교하기</button>
+                    <button id="benchQuick" type="button" class="px-3 py-2 rounded-xl bg-slate-200">빠른 예시</button>
+                </div>
+            </form>
+
+            <div id="benchEmpty" class="mt-3 text-sm text-slate-600">아직 비교 결과가 없습니다. 위의 버튼을 눌러보세요.</div>
+            <div class="glass rounded-2xl p-4 border mt-3">
+                <canvas id="benchChart" height="80"></canvas>
+            </div>
+            <div id="benchTableWrap" class="overflow-auto glass rounded-2xl p-4 border mt-3"></div>
+        </div>
+    </section>
+
+    <!-- STEP 3: Run Simulation + Scenario Builder -->
+    <section class="space-y-3">
+        <div class="flex items-center gap-3">
+            <div class="pill px-2 py-0.5 bg-slate-900 text-white text-xs">③</div>
+            <h2 class="text-lg sm:text-xl font-bold text-force">시뮬레이션 실행</h2>
+            <span class="hint">/api/simulations</span>
+        </div>
+
+        <div class="glass rounded-2xl border p-4">
+            <p class="hint mb-2">아래 값은 기본값으로 충분합니다. <span class="kbd">Run Simulation</span>만 눌러보세요!</p>
+
+            <form id="simForm" class="grid lg:grid-cols-3 gap-3">
+                <label class="block">
+                    <span class="text-xs">Model Type</span>
+                    <select id="sModel" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 bg-white/90">
+                        <option>RESERVE</option><option>ALGO</option><option>HYBRID</option>
+                    </select>
+                </label>
+                <label class="block">
+                    <span class="text-xs">Steps <span class="hint">크면 느려질 수 있어요</span></span>
+                    <input id="sSteps" type="number" value="3000" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 bg-white/90">
+                </label>
+                <label class="block">
+                    <span class="text-xs">dt</span>
+                    <input id="sDt" type="number" value="1" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 bg-white/90">
+                </label>
+
+                <div class="lg:col-span-3 grid sm:grid-cols-3 gap-3">
+                    <label class="block">
+                        <span class="text-xs">LTV</span>
+                        <input id="pLtv" type="number" step="0.01" value="0.9" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 bg-white/90">
+                    </label>
+                    <label class="block">
+                        <span class="text-xs">Redeem Fee</span>
+                        <input id="pFee" type="number" step="0.001" value="0.001" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 bg-white/90">
+                    </label>
+                    <label class="block">
+                        <span class="text-xs">Oracle Lag (sec)</span>
+                        <input id="pLag" type="number" value="60" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 bg-white/90">
+                    </label>
+                </div>
+
+                <div class="lg:col-span-3 grid sm:grid-cols-3 gap-3">
+                    <label class="block">
+                        <span class="text-xs">Init Supply</span>
+                        <input id="pSupply" type="number" value="1000000" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 bg-white/90">
+                    </label>
+                    <label class="block">
+                        <span class="text-xs">Init Reserve Cash</span>
+                        <input id="pCash" type="number" value="1000000" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 bg-white/90">
+                    </label>
+                    <label class="block">
+                        <span class="text-xs">Init Reserve Collateral</span>
+                        <input id="pCollat" type="number" value="0" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 bg-white/90">
+                    </label>
+                </div>
+
+                <!-- === 시나리오 빌더 시작 === -->
+                <div class="lg:col-span-3 space-y-3">
+                    <div class="grid sm:grid-cols-3 gap-3">
+                        <label class="block sm:col-span-2">
+                            <span class="text-xs">Scenario Preset</span>
+                            <select id="presetSelect" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 bg-white/90">
+                                <option value="MIXED_STRESS">Mixed Stress (redeem + collateral + oracle)</option>
+                                <option value="LARGE_REDEEM">Large Redeem (대규모 환매)</option>
+                                <option value="COLLATERAL_CRASH">Collateral Crash (담보 급락)</option>
+                                <option value="ORACLE_FREEZE">Oracle Freeze (오라클 장기 지연)</option>
+                                <option value="SLOW_BLEED">Slow Bleed (작은 환매 반복)</option>
+                            </select>
+                        </label>
+                        <div class="flex items-end">
+                            <button id="btnApplyPreset"
+                                    class="w-full px-3 py-2 rounded-xl bg-slate-800 text-white font-semibold shadow hover:bg-slate-700"
+                                    type="button">프리셋 적용</button>
+                        </div>
+                    </div>
+
+                    <!-- 프리셋 설명 박스 -->
+                    <div class="glass rounded-xl border p-3">
+                        <div class="font-semibold text-force mb-1">시나리오 설명</div>
+                        <div id="presetDesc" class="text-sm text-slate-700">
+                            프리셋을 선택하면 여기에서 시나리오 의도와 영향 요소를 설명해 드립니다.
+                        </div>
+                    </div>
+
+                    <!-- 시나리오 빌더(행 편집) -->
+                    <div class="glass rounded-2xl border p-3">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="font-semibold text-force">Scenario Builder</h4>
+                            <div class="flex gap-2">
+                                <button id="btnAddRow" type="button"
+                                        class="px-3 py-1 rounded-lg bg-indigo-600 text-white text-sm">행 추가</button>
+                                <button id="btnClearRows" type="button"
+                                        class="px-3 py-1 rounded-lg bg-slate-200 text-sm">초기화</button>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full text-sm">
+                                <thead>
+                                <tr class="text-left text-slate-600">
+                                    <th class="px-2 py-1">t (step)</th>
+                                    <th class="px-2 py-1">type</th>
+                                    <th class="px-2 py-1">value</th>
+                                    <th class="px-2 py-1"></th>
+                                </tr>
+                                </thead>
+                                <tbody id="scenarioRows"></tbody>
+                            </table>
+                        </div>
+
+                        <div class="flex flex-wrap gap-2 mt-3">
+                            <button id="btnSyncToJson" type="button"
+                                    class="px-3 py-1 rounded-lg bg-slate-900 text-white text-sm">표 → JSON 반영</button>
+                            <button id="btnLoadFromJson" type="button"
+                                    class="px-3 py-1 rounded-lg bg-slate-200 text-sm">JSON → 표 불러오기</button>
+                        </div>
+
+                        <label class="block mt-3">
+                            <span class="text-xs">Scenario JSON</span>
+                            <textarea id="sScenarios" rows="4"
+                                      class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 bg-white/90 code">[]</textarea>
+                        </label>
+                        <p class="hint mt-1">프리셋을 적용하거나, 위 표에서 직접 값을 수정하세요. 필요하면 JSON을 직접 고쳐도 됩니다.</p>
+                    </div>
+                </div>
+                <!-- === 시나리오 빌더 끝 === -->
+
+                <div class="lg:col-span-3 flex justify-end gap-2">
+                    <button class="px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold shadow hover:bg-indigo-500" type="submit">Run Simulation</button>
+                </div>
+            </form>
+
+            <div id="simStatus" class="text-sm mt-2">아직 실행되지 않았습니다.</div>
+
+            <div class="grid lg:grid-cols-5 gap-4 mt-4">
+                <div class="lg:col-span-3 glass rounded-2xl p-4 border">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="font-semibold text-force">Price Series</h3>
+                        <div id="simMeta" class="text-xs text-slate-600"></div>
+                    </div>
+                    <div id="simEmpty" class="text-sm text-slate-600">실행 후 가격 차트가 여기에 표시됩니다.</div>
+                    <canvas id="simChart" height="100" class="hidden"></canvas>
+                </div>
+                <div class="lg:col-span-2 space-y-4">
+                    <div class="metric-card glass border p-4">
+                        <h4 class="font-semibold mb-2 text-force">Metrics</h4>
+                        <div id="simMetricsEmpty" class="text-sm text-slate-600">실행 후 메트릭이 표시됩니다.</div>
+                        <dl id="simMetrics" class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm"></dl>
+                    </div>
+                    <div class="metric-card glass border p-4">
+                        <h4 class="font-semibold mb-2 text-force">Events</h4>
+                        <div id="simEvents" class="text-sm max-h-56 overflow-auto text-slate-600">아직 이벤트가 없습니다.</div>
+                    </div>
+                    <div class="metric-card glass border p-4">
+                        <h4 class="font-semibold mb-2 text-force">결과 해설(자동)</h4>
+                        <div id="simExplain" class="text-sm leading-relaxed text-slate-800">
+                            실행 후 자동으로 해설이 표시됩니다.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- STEP 4: Glossary -->
+    <section class="glass rounded-2xl border p-5">
+        <div class="flex items-center gap-3">
+            <div class="pill px-2 py-0.5 bg-slate-900 text-white text-xs">④</div>
+            <h2 class="text-lg sm:text-xl font-bold text-force">용어 사전</h2>
+        </div>
+        <ul class="mt-3 grid lg:grid-cols-3 gap-3 text-sm">
+            <li class="p-3 bg-white/80 rounded-xl border"><span class="font-semibold">Peg(페그)</span> — 1달러 같은 기준값에 붙어 있도록 설계된 상태</li>
+            <li class="p-3 bg-white/80 rounded-xl border"><span class="font-semibold">Redeem</span> — 토큰을 기초자산으로 교환/환매하는 행위</li>
+            <li class="p-3 bg-white/80 rounded-xl border"><span class="font-semibold">Oracle</span> — 외부 가격 정보를 들여오는 장치(지연/오류 가능)</li>
+        </ul>
+    </section>
+
+    <footer class="py-8 text-center text-xs text-slate-600">
+        © StabiliSim — Synthetic Stablecoin Simulator
+    </footer>
+</main>
+
+<script>
+    const API = {
+        metrics: (symbol, from, to, interval) => {
+            const q = new URLSearchParams();
+            if (from) q.set('from', from);
+            if (to) q.set('to', to);
+            if (interval) q.set('interval', interval);
+            return fetch(`/api/assets/${encodeURIComponent(symbol)}/metrics?` + q.toString()).then(r => r.json());
+        },
+        bench: (symbols, from, to, interval) => {
+            const q = new URLSearchParams({ symbols: symbols.join(','), interval });
+            if (from) q.set('from', from);
+            if (to) q.set('to', to);
+            return fetch('/api/benchmarks/peg-deviation?' + q.toString()).then(r => r.json());
+        },
+        simCreate: (payload) => fetch('/api/simulations', {
+            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
+        }).then(r => r.json()),
+        simGet: (id) => fetch('/api/simulations/' + encodeURIComponent(id)).then(r => r.json())
+    };
+
+    // Onboarding banner close
+    document.getElementById('bannerClose').addEventListener('click', () => {
+        document.getElementById('banner').style.display = 'none';
+    });
+
+    // ------- Metrics -------
+    let mChart;
+    document.getElementById('metricsForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const symbol = document.getElementById('mSymbol').value.trim();
+        const interval = document.getElementById('mInterval').value.trim();
+        const from = document.getElementById('mFrom').value.trim();
+        const to = document.getElementById('mTo').value.trim();
+
+        try {
+            const data = await API.metrics(symbol, from, to, interval);
+            renderMetricsCards(data);
+            renderMetricsChart(data);
+        } catch (err) {
+            setText('metricsEmpty', '메트릭 요청 중 오류가 발생했습니다. 콘솔을 확인하세요.');
+            console.error(err);
+        }
+    });
+
+    function renderMetricsCards(data) {
+        hide('metricsEmpty');
+        const m = data.metrics || {};
+        const cards = [
+            { name: 'Avg Deviation', val: fmt(m.avgDeviation), tip:'1.0에서 벗어난 평균 크기(낮을수록 좋음)' },
+            { name: 'Volatility',   val: fmt(m.volatility), tip:'로그수익률 표준편차(낮을수록 좋음)' },
+            { name: 'Peg Uptime',   val: m.pegUptime != null ? (m.pegUptime*100).toFixed(2)+'%' : '—', tip:'0.995~1.005 유지 비율(높을수록 좋음)' },
+            { name: 'OHLC',         val: data.metrics?.priceSummary ? `O ${fmt(m.priceSummary.open)} / H ${fmt(m.priceSummary.high)} / L ${fmt(m.priceSummary.low)} / C ${fmt(m.priceSummary.close)}` : '—', tip:'시작/최고/최저/마감' }
+        ];
+        document.getElementById('metricsCards').innerHTML = cards.map(c => `
+    <div class="metric-card glass p-4 border">
+      <div class="text-xs text-slate-600">${c.name}</div>
+      <div class="text-lg font-bold text-force">${c.val}</div>
+      <div class="hint mt-1">${c.tip}</div>
+    </div>`).join('');
+    }
+
+    function renderMetricsChart(data) {
+        const ctx = document.getElementById('metricsChart');
+        const labels = data.samples.map(s => new Date(s.t).toLocaleString());
+        const prices = data.samples.map(s => s.price);
+
+        if (!labels.length) { setText('metricsEmpty','표시할 데이터가 없습니다.'); return; }
+
+        if (mChart) mChart.destroy();
+        mChart = new Chart(ctx, {
+            type: 'line',
+            data: { labels, datasets: [{ label: `${data.symbol} price`, data: prices, borderWidth: 2, tension: .2 }] },
+            options: { responsive:true, plugins:{ legend:{ display:true }}, scales:{ y:{ beginAtZero:false } } }
+        });
+    }
+
+    // ------- Benchmarks -------
+    let bChart;
+    document.getElementById('benchQuick').addEventListener('click', () => {
+        document.getElementById('bSymbols').value = 'USDT,USDC,DAI';
+        document.getElementById('bInterval').value = '1h';
+        document.getElementById('benchForm').dispatchEvent(new Event('submit'));
+    });
+
+    document.getElementById('benchForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const symbols = document.getElementById('bSymbols').value.split(',').map(s => s.trim()).filter(Boolean);
+        const interval = document.getElementById('bInterval').value;
+        const from = document.getElementById('bFrom').value.trim();
+        const to = document.getElementById('bTo').value.trim();
+
+        try {
+            const res = await API.bench(symbols, from, to, interval);
+            renderBenchChart(res);
+            renderBenchTable(res);
+        } catch (err) {
+            setText('benchEmpty', '벤치마크 요청 중 오류가 발생했습니다.');
+            console.error(err);
+        }
+    });
+
+    function renderBenchChart(res) {
+        hide('benchEmpty');
+        const ctx = document.getElementById('benchChart');
+        const labels = res.results.map(r => r.symbol);
+        const avgDev = res.results.map(r => r.metrics?.avgDeviation ?? null);
+        const vol = res.results.map(r => r.metrics?.volatility ?? null);
+        const uptime = res.results.map(r => (r.metrics?.pegUptime ?? null) != null ? r.metrics.pegUptime*100 : null);
+
+        if (bChart) bChart.destroy();
+        bChart = new Chart(ctx, {
+            type: 'bar',
+            data: { labels,
+                datasets: [
+                    { label: 'Avg Deviation', data: avgDev },
+                    { label: 'Volatility', data: vol },
+                    { label: 'Peg Uptime (%)', data: uptime }
+                ] },
+            options: { responsive:true, plugins:{ legend:{ position:'bottom' } }, scales:{ y:{ beginAtZero:true } } }
+        });
+    }
+
+    function renderBenchTable(res) {
+        const rows = res.results.map(r => `
+    <tr class="border-t border-slate-200/60">
+      <td class="px-3 py-2">${r.symbol}</td>
+      <td class="px-3 py-2">${fmt(r.metrics?.avgDeviation)}</td>
+      <td class="px-3 py-2">${fmt(r.metrics?.volatility)}</td>
+      <td class="px-3 py-2">${r.metrics?.pegUptime != null ? (r.metrics.pegUptime*100).toFixed(2)+'%' : '—'}</td>
+    </tr>`).join('');
+        document.getElementById('benchTableWrap').innerHTML = `
+    <table class="min-w-full text-sm">
+      <thead>
+        <tr class="text-left text-slate-600">
+          <th class="px-3 py-2">Symbol</th>
+          <th class="px-3 py-2">Avg Deviation</th>
+          <th class="px-3 py-2">Volatility</th>
+          <th class="px-3 py-2">Peg Uptime</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+    }
+
+    // ------- Scenario Builder (Presets + Table Editing) -------
+    const SCENARIO_PRESETS = {
+        MIXED_STRESS: {
+            name: 'Mixed Stress',
+            desc: '대규모 환매 + 담보 급락 + 오라클 지연이 순차/동시에 발생하는 복합 스트레스 테스트입니다. \
+강한 유동성 요구와 담보 가치 급락, 가격 반영 지연이 겹칠 때 페그 유지력이 얼마나 버티는지 확인합니다.',
+            rows: [
+                { t: 800,  type: 'REDEEM_SHOCK',    value: 0.25 },
+                { t: 1200, type: 'COLLATERAL_DROP', value: 0.30 },
+                { t: 900,  type: 'ORACLE_LAG',      value: 120 }
+            ]
+        },
+        LARGE_REDEEM: {
+            name: 'Large Redeem',
+            desc: '짧은 시간에 대규모 환매가 몰리는 상황입니다. 준비금과 수수료 정책이 페그를 얼마나 방어하는지 확인합니다.',
+            rows: [ { t: 800, type: 'REDEEM_SHOCK', value: 0.35 } ]
+        },
+        COLLATERAL_CRASH: {
+            name: 'Collateral Crash',
+            desc: '담보 자산 가치가 급락하는 사건입니다. 과도한 LTV나 낮은 현금 비중일수록 페그가 흔들릴 수 있습니다.',
+            rows: [ { t: 1000, type: 'COLLATERAL_DROP', value: 0.45 } ]
+        },
+        ORACLE_FREEZE: {
+            name: 'Oracle Freeze',
+            desc: '오라클이 장시간 업데이트되지 않는 상황(가격 반영 지연). 시장 가격과의 괴리 발생 위험을 봅니다.',
+            rows: [ { t: 700, type: 'ORACLE_LAG', value: 600 } ] // 10분 지연
+        },
+        SLOW_BLEED: {
+            name: 'Slow Bleed',
+            desc: '작은 환매가 여러 번 반복되는 만성적 유동성 유출. 단발성 충격보다 더 오래 페그를 괴롭힐 수 있습니다.',
+            rows: [
+                { t: 600,  type: 'REDEEM_SHOCK', value: 0.05 },
+                { t: 900,  type: 'REDEEM_SHOCK', value: 0.05 },
+                { t: 1200, type: 'REDEEM_SHOCK', value: 0.05 }
+            ]
+        }
+    };
+
+    // DOM refs
+    const rowsTbody = document.getElementById('scenarioRows');
+    const presetSelect = document.getElementById('presetSelect');
+    const presetDesc  = document.getElementById('presetDesc');
+    const txtJson     = document.getElementById('sScenarios');
+
+    // helpers for rows
+    function renderRow(r, idx) {
+        return `
+    <tr data-idx="${idx}">
+      <td class="px-2 py-1"><input type="number" class="w-28 px-2 py-1 border rounded" value="${r.t}" /></td>
+      <td class="px-2 py-1">
+        <select class="w-48 px-2 py-1 border rounded">
+          <option ${r.type==='REDEEM_SHOCK'?'selected':''}>REDEEM_SHOCK</option>
+          <option ${r.type==='COLLATERAL_DROP'?'selected':''}>COLLATERAL_DROP</option>
+          <option ${r.type==='ORACLE_LAG'?'selected':''}>ORACLE_LAG</option>
+        </select>
+      </td>
+      <td class="px-2 py-1"><input type="number" class="w-28 px-2 py-1 border rounded" value="${r.value}" step="0.001" /></td>
+      <td class="px-2 py-1">
+        <button class="px-2 py-1 text-sm rounded bg-slate-200" data-action="del">삭제</button>
+      </td>
+    </tr>`;
+    }
+    function getRowsFromTable() {
+        const out = [];
+        rowsTbody.querySelectorAll('tr').forEach(tr => {
+            const t = Number(tr.querySelector('input[type=number]').value);
+            const type = tr.querySelector('select').value;
+            const inputs = tr.querySelectorAll('input[type=number]');
+            const value = Number(inputs[1]?.value ?? inputs[0]?.value);
+            if (!Number.isNaN(t) && type) out.push({ t, type, value });
+        });
+        // 시간 순 정렬
+        out.sort((a,b) => a.t - b.t);
+        return out;
+    }
+    function setRowsToTable(arr) {
+        rowsTbody.innerHTML = arr.map((r,i)=>renderRow(r,i)).join('');
+    }
+    function setDescForPreset(key) {
+        const p = SCENARIO_PRESETS[key];
+        if (!p) { presetDesc.textContent = '프리셋을 선택하면 설명이 표시됩니다.'; return; }
+        presetDesc.innerHTML = `<b>${p.name}</b><br>${p.desc}`;
+    }
+
+    // events
+    document.getElementById('btnApplyPreset').addEventListener('click', () => {
+        const key = presetSelect.value;
+        const p = SCENARIO_PRESETS[key];
+        if (!p) return;
+        setRowsToTable(p.rows);
+        txtJson.value = JSON.stringify(p.rows);
+        setDescForPreset(key);
+    });
+    document.getElementById('btnAddRow').addEventListener('click', () => {
+        const arr = getRowsFromTable();
+        arr.push({ t: arr.length ? (arr[arr.length-1].t + 100) : 500, type:'REDEEM_SHOCK', value:0.1 });
+        setRowsToTable(arr);
+    });
+    document.getElementById('btnClearRows').addEventListener('click', () => {
+        setRowsToTable([]);
+        txtJson.value = '[]';
+    });
+    document.getElementById('btnSyncToJson').addEventListener('click', () => {
+        txtJson.value = JSON.stringify(getRowsFromTable());
+    });
+    document.getElementById('btnLoadFromJson').addEventListener('click', () => {
+        const arr = safeJson(txtJson.value);
+        if (Array.isArray(arr)) setRowsToTable(arr);
+    });
+
+    // 삭제 버튼 위임
+    rowsTbody.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-action="del"]');
+        if (!btn) return;
+        const tr = btn.closest('tr');
+        tr.remove();
+    });
+
+    // 최초 프리셋 설명 갱신
+    setDescForPreset(presetSelect.value);
+
+    // ------- Simulation -------
+    let simChart;
+    document.getElementById('simForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        // 표 → JSON 동기화
+        document.getElementById('btnSyncToJson').click();
+
+        const payload = {
+            modelType: document.getElementById('sModel').value,
+            steps: parseInt(document.getElementById('sSteps').value, 10),
+            dt: parseFloat(document.getElementById('sDt').value),
+            params: {
+                ltv: parseFloat(document.getElementById('pLtv').value),
+                redeemFee: parseFloat(document.getElementById('pFee').value),
+                oracleLagSec: parseInt(document.getElementById('pLag').value, 10),
+                initSupply: parseFloat(document.getElementById('pSupply').value),
+                initReserveCash: parseFloat(document.getElementById('pCash').value),
+                initReserveCollateral: parseFloat(document.getElementById('pCollat').value)
+            },
+            scenarios: safeJson(document.getElementById('sScenarios').value)
+        };
+
+        try {
+            const created = await API.simCreate(payload);
+            setText('simStatus', `Simulation created: ${created.id} (status=${created.status})`);
+            pollSimulation(created.id);
+        } catch (err) {
+            setText('simStatus', '시뮬레이션 생성 중 오류가 발생했습니다.');
+            console.error(err);
+        }
+    });
+
+    async function pollSimulation(id) {
+        setText('simStatus', `실행 중… (${id})`);
+        let tries = 0, maxTries = 300; // 150s
+
+        const timer = setInterval(async () => {
+            tries++;
+            let res;
+            try { res = await API.simGet(id); }
+            catch (e) { setText('simStatus','조회 오류'); clearInterval(timer); return; }
+
+            if (res.status === 'RUNNING' || res.status === 'QUEUED') {
+                setText('simStatus', `Status: ${res.status} ${res.progress != null ? `(${(res.progress*100).toFixed(1)}%)` : ''}`);
+                if (tries >= maxTries) { clearInterval(timer); setText('simStatus', '대기 시간 초과'); }
+                return;
+            }
+            clearInterval(timer);
+            if (res.status === 'FINISHED') {
+                const secs = (new Date(res.finishedAt)-new Date(res.startedAt))/1000;
+                setText('simStatus', `완료! (소요 ${secs.toFixed(1)}s)`);
+                renderSimResult(res);
+            } else {
+                setText('simStatus', '실패');
+            }
+        }, 500);
+    }
+
+    function renderSimResult(res) {
+        // Meta
+        setText('simMeta', `${res.modelType} • points=${res.series?.length ?? 0}`);
+        hide('simEmpty');
+        const canvas = document.getElementById('simChart');
+        canvas.classList.remove('hidden');
+
+        // Metrics
+        const m = res.metrics || {};
+        hide('simMetricsEmpty');
+        document.getElementById('simMetrics').innerHTML = [
+            ['Avg Deviation', fmt(m.avgDeviation), '평균 괴리율'],
+            ['Volatility', fmt(m.volatility), '변동성(표준편차)'],
+            ['Peg Uptime', m.pegUptime != null ? (m.pegUptime*100).toFixed(2)+'%' : '—', '페그 유지율'],
+            ['Recovery Time', m.recoveryTime ?? '—', '충격 후 복귀 시간(step)'],
+            ['Max Drawdown', fmt(m.maxDrawdown), '최대 낙폭']
+        ].map(([k,v,tip]) => `<div class="col-span-1 text-slate-600">${k}</div><div class="col-span-1 font-semibold text-force">${v}<div class="hint">${tip}</div></div>`).join('');
+
+        // Events
+        const evHtml = (res.events||[]).slice(0,200).map(e =>
+            `<div class="flex items-center justify-between border-b border-slate-200/60 py-1">
+      <div class="text-slate-600 text-xs">t=${e.t}</div>
+      <div class="font-medium text-sm text-force">${e.kind}</div>
+      <div class="text-xs text-slate-600">${e.data ? JSON.stringify(e.data) : ''}</div>
+    </div>`
+        ).join('') || '<div class="text-slate-600">이벤트 없음</div>';
+        document.getElementById('simEvents').innerHTML = evHtml;
+
+        // 자동 해설
+        document.getElementById('simExplain').innerHTML = explainSimulation(res);
+
+        // Chart
+        const labels = (res.series||[]).map(p => p.t);
+        const prices = (res.series||[]).map(p => p.price);
+        const ctx = document.getElementById('simChart');
+        if (simChart) simChart.destroy();
+        simChart = new Chart(ctx, {
+            type: 'line',
+            data: { labels, datasets: [{ label: 'Price', data: prices, borderWidth: 2, tension: .2 }] },
+            options: { responsive: true, plugins: { legend: { display: true }}, scales: { y: { beginAtZero: false } } }
+        });
+    }
+
+    // --- 결과 해설 생성 로직(규칙 기반) ---
+    function explainSimulation(res) {
+        const m = res.metrics || {};
+        const adv = m.avgDeviation ?? null;    // 평균 괴리율(낮을수록 좋음)
+        const vol = m.volatility ?? null;      // 변동성(낮을수록 좋음)
+        const up  = m.pegUptime ?? null;       // 페그 유지율(높을수록 좋음)
+        const rt  = m.recoveryTime ?? null;    // 회복 시간(짧을수록 좋음)
+        const mdd = m.maxDrawdown ?? null;     // 최대 낙폭(낮을수록 좋음)
+
+        const label = (x, good, ok) => {
+            if (x == null) return 'N/A';
+            if (x <= good.min || x >= good.max) return '우수';
+            if (x <= ok.min   || x >= ok.max)   return '양호';
+            return '주의';
+        };
+
+        const parts = [];
+
+        if (adv != null) {
+            const grade = label(adv, {min:0, max:0.001}, {min:0, max:0.003});
+            parts.push(`• <b>평균 괴리율</b>: ${adv.toFixed(6)} (${grade}). 값이 작을수록 페그를 잘 유지.`);
+        } else parts.push(`• 평균 괴리율: 데이터 없음`);
+
+        if (up != null) {
+            const pct = (up * 100).toFixed(2) + '%';
+            const grade = label(up, {min:0.99, max:Infinity}, {min:0.97, max:Infinity});
+            parts.push(`• <b>페그 유지율</b>: ${pct} (${grade}). 0.995~1.005 범위 체류 비율.`);
+        } else parts.push(`• 페그 유지율: 데이터 없음`);
+
+        if (vol != null) {
+            const grade = label(vol, {min:0, max:0.002}, {min:0, max:0.005});
+            parts.push(`• <b>변동성</b>: ${vol.toFixed(6)} (${grade}). 낮을수록 안정적.`);
+        } else parts.push(`• 변동성: 데이터 없음`);
+
+        if (rt != null) {
+            let grade = '양호';
+            if (rt <= 120) grade = '우수';
+            else if (rt >= 600) grade = '주의';
+            parts.push(`• <b>회복 시간</b>: ${rt} step (${grade}). 충격 이후 1.0 근처 복귀까지 시간.`);
+        }
+
+        if (mdd != null) {
+            let grade = '양호';
+            if (mdd <= 0.01) grade = '우수';
+            else if (mdd >= 0.03) grade = '주의';
+            parts.push(`• <b>최대 낙폭</b>: ${mdd.toFixed(6)} (${grade}). 가장 크게 떨어진 폭.`);
+        }
+
+        const evs = (res.events || []);
+        if (evs.length) {
+            const kinds = Array.from(new Set(evs.map(e => e.kind))).join(', ');
+            parts.push(`• <b>이벤트</b>: ${evs.length}건 (${kinds}). 충격/정책 변경의 흔적.`);
+        }
+
+        const verdict = (() => {
+            if (adv != null && up != null) {
+                if (adv <= 0.001 && up >= 0.99) return '전반적으로 <b>매우 안정적</b>입니다.';
+                if (adv <= 0.003 && up >= 0.97) return '전반적으로 <b>안정적</b>입니다.';
+                return '페그 유지력이 <b>아쉬운 편</b>입니다. 파라미터/수수료/담보 정책을 조정해보세요.';
+            }
+            return '지표가 부족하여 종합 판단이 어렵습니다.';
+        })();
+
+        return `<p class="mb-2">${verdict}</p><p>${parts.join('<br>')}</p>`;
+    }
+
+    // ------- Helpers -------
+    function fmt(x) { return (x==null || isNaN(x)) ? '—' : Number(x).toFixed(6); }
+    function setText(id, text){ const el = document.getElementById(id); if (el) el.textContent = text; }
+    function hide(id){ const el = document.getElementById(id); if (el) el.style.display = 'none'; }
+    function safeJson(s) { try { return JSON.parse(s); } catch { return []; } }
+
+    // Auto-load: 첫 화면에서는 “빠른 예시”만 자동 실행
+    window.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('benchQuick').click();
+    });
+</script>
+</body>
+</html>
