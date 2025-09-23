@@ -1,6 +1,10 @@
 # StabiliSim: 스테이블코인 스트레스 & 페깅 안정성 시뮬레이터
 
 <img width="1510" height="772" alt="Image" src="https://github.com/user-attachments/assets/abfc493a-3d74-4efe-9551-c508e88dcb81" />
+<img width="1296" height="672" alt="Image" src="https://github.com/user-attachments/assets/ee0b3f26-c307-40ef-9f94-f181bc4dc156" />
+<img width="1310" height="727" alt="Image" src="https://github.com/user-attachments/assets/2ce2df62-75ca-4cb0-9737-4012a5727d53" />
+<img width="1347" height="801" alt="Image" src="https://github.com/user-attachments/assets/75aecde3-400a-4bc0-a17b-4daebf3ffb5b" />
+<img width="1282" height="811" alt="Image" src="https://github.com/user-attachments/assets/6ecf185f-eb98-44df-a6a8-a78bd426f01d" />
 
 ## 📌 프로젝트 개요
 **StabiliSim**은 주요 스테이블코인(USDT, USDC, DAI)의 **페깅 안정성**을 분석하고,  
