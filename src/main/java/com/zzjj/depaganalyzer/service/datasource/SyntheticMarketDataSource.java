@@ -25,7 +25,7 @@ import java.util.Random;
  *  - 필요하면 생성자 파라미터/설정으로 시드를 외부에서 주입해 시드 변경도 가능
  */
 @Service
-@Profile({"default", "synthetic"}) // 기본/합성 프로파일에서 활성화
+//@Profile({"default", "synthetic"}) // 기본/합성 프로파일에서 활성화
 public class SyntheticMarketDataSource implements MarketDataSource{
 
     // 값이 경계 밖으로 튀지 않도록 간단한 클램프 함수 (디페그 폭주 방지)

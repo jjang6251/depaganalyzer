@@ -26,7 +26,7 @@ import java.util.List;
  *  - 실데이터 버전은 MetricsServiceDbImpl 같은 클래스로 만들고 @Profile("real") 부여 권장
  */
 @Service
-@Profile({"default", "synthetic"})
+//@Profile({"default", "synthetic"})
 //1주차 : 간단하게 가짜 시세를 생성해서 지표를 계산
 public class MetricsServiceImpl implements MetricsService {
 
